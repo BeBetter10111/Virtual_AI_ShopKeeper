@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopkeeper.local/schemas/unity_bridge.schema.json",
+  "title": "Unity WebGL <-> React bridge",
+  "description": "React -> Unity: SendMessage('WebGLBridgeController', 'DispatchCommand', JSON.stringify(UnityCommand)). Unity -> React: BrowserEvents.jslib calls window.onUnityEvent(eventName, JSON.stringify(payload)); UnityEvent below is the logical shape of that call.",
+  "$defs": {
+    "Viseme": {
+      "enum": ["sil", "PP", "FF", "TH", "DD", "kk", "CH", "SS", "nn", "RR", "aa", "E", "I", "O", "U"],
+      "description": "Oculus 15 viseme set."
+    },
+    "AvatarAnimation": {
+      "enum": ["IDLE", "WAVE", "NOD", "THINKING", "POINT_LEFT", "POINT_RIGHT", "GESTURE_GUIDE", "SHRUG"]
+    },
+    "VisemeFrame": {
+      "type": "object",
+      "required": ["time_ms", "viseme"],
+      "additionalProperties": false,
+      "properties": {
+        "time_ms": { "type": "integer", "minimum": 0, "description": "Relative to the start of the audio chunk." },
+        "viseme": { "$ref": "#/$defs/Viseme" }
+      }
+    },
+    "GraphicsQuality": { "enum": ["Low", "Medium", "High"] },
+
+    "Command_INIT_STORE_LAYOUT": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "INIT_STORE_LAYOUT" },
+        "payload": { "$ref": "inventory.schema.json#/$defs/StoreLayout" }
+      }
+    },
+    "Command_NAVIGATE_TO_WAYPOINT": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "NAVIGATE_TO_WAYPOINT" },
+        "payload": {
+          "type": "object",
+          "required": ["waypoint_id"],
+          "additionalProperties": false,
+          "properties": {
+            "waypoint_id": { "$ref": "inventory.schema.json#/$defs/WaypointId" },
+            "stop_distance_m": { "type": "number", "minimum": 0, "default": 1.5 }
+          }
+        }
+      }
+    },
+    "Command_CANCEL_NAVIGATION": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "CANCEL_NAVIGATION" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "Command_HIGHLIGHT_PRODUCTS": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "HIGHLIGHT_PRODUCTS" },
+        "payload": {
+          "type": "object",
+          "required": ["product_ids"],
+          "additionalProperties": false,
+          "properties": {
+            "product_ids": {
+              "type": "array",
+              "items": { "$ref": "inventory.schema.json#/$defs/ProductId" },
+              "description": "Empty array clears all highlights."
+            },
+            "duration_ms": { "type": "integer", "minimum": 0, "default": 8000 }
+          }
+        }
+      }
+    },
+    "Command_PLAY_AVATAR_ANIMATION": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "PLAY_AVATAR_ANIMATION" },
+        "payload": {
+          "type": "object",
+          "required": ["animation"],
+          "additionalProperties": false,
+          "properties": { "animation": { "$ref": "#/$defs/AvatarAnimation" } }
+        }
+      }
+    },
+    "Command_FEED_VISEME_DATA": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "FEED_VISEME_DATA" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id", "chunk_seq", "playback_latency_ms", "visemes"],
+          "additionalProperties": false,
+          "properties": {
+            "response_id": { "type": "string" },
+            "chunk_seq": { "type": "integer", "minimum": 0 },
+            "playback_latency_ms": { "type": "number", "minimum": 0, "description": "AudioContext.outputLatency + baseLatency." },
+            "visemes": { "type": "array", "items": { "$ref": "#/$defs/VisemeFrame" } }
+          }
+        }
+      }
+    },
+    "Command_STOP_SPEAKING": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "STOP_SPEAKING" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id"],
+          "additionalProperties": false,
+          "properties": { "response_id": { "type": "string" } }
+        }
+      }
+    },
+    "Command_SET_GRAPHICS_QUALITY": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "SET_GRAPHICS_QUALITY" },
+        "payload": {
+          "type": "object",
+          "required": ["level"],
+          "additionalProperties": false,
+          "properties": { "level": { "$ref": "#/$defs/GraphicsQuality" } }
+        }
+      }
+    },
+    "Command_UPDATE_CART_BADGE": {
+      "type": "object",
+      "required": ["action", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "const": "UPDATE_CART_BADGE" },
+        "payload": {
+          "type": "object",
+          "required": ["item_count", "total_amount"],
+          "additionalProperties": false,
+          "properties": {
+            "item_count": { "type": "integer", "minimum": 0 },
+            "total_amount": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "UnityCommand": {
+      "description": "Any React -> Unity command. Also the element type of UNITY_COMMAND.commands in ws_events.schema.json.",
+      "oneOf": [
+        { "$ref": "#/$defs/Command_INIT_STORE_LAYOUT" },
+        { "$ref": "#/$defs/Command_NAVIGATE_TO_WAYPOINT" },
+        { "$ref": "#/$defs/Command_CANCEL_NAVIGATION" },
+        { "$ref": "#/$defs/Command_HIGHLIGHT_PRODUCTS" },
+        { "$ref": "#/$defs/Command_PLAY_AVATAR_ANIMATION" },
+        { "$ref": "#/$defs/Command_FEED_VISEME_DATA" },
+        { "$ref": "#/$defs/Command_STOP_SPEAKING" },
+        { "$ref": "#/$defs/Command_SET_GRAPHICS_QUALITY" },
+        { "$ref": "#/$defs/Command_UPDATE_CART_BADGE" }
+      ]
+    },
+
+    "Event_ON_STORE_READY": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_STORE_READY" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "PlayerMovedPayload": {
+      "type": "object",
+      "required": ["position", "yaw", "pitch", "current_aisle", "gaze_target_product_id"],
+      "additionalProperties": false,
+      "properties": {
+        "position": { "$ref": "inventory.schema.json#/$defs/Vector3" },
+        "yaw": { "type": "number" },
+        "pitch": { "type": "number" },
+        "current_aisle": { "type": ["string", "null"] },
+        "gaze_target_product_id": { "oneOf": [{ "$ref": "inventory.schema.json#/$defs/ProductId" }, { "type": "null" }] }
+      }
+    },
+    "Event_ON_PLAYER_MOVED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_PLAYER_MOVED" },
+        "payload": { "$ref": "#/$defs/PlayerMovedPayload" }
+      }
+    },
+    "Event_ON_PRODUCT_INSPECT_CLICKED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_PRODUCT_INSPECT_CLICKED" },
+        "payload": {
+          "type": "object",
+          "required": ["product_id"],
+          "additionalProperties": false,
+          "properties": { "product_id": { "$ref": "inventory.schema.json#/$defs/ProductId" } }
+        }
+      }
+    },
+    "Event_ON_WAYPOINT_ARRIVED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_WAYPOINT_ARRIVED" },
+        "payload": {
+          "type": "object",
+          "required": ["waypoint_id"],
+          "additionalProperties": false,
+          "properties": { "waypoint_id": { "$ref": "inventory.schema.json#/$defs/WaypointId" } }
+        }
+      }
+    },
+    "Event_ON_NAVIGATION_FAILED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_NAVIGATION_FAILED" },
+        "payload": {
+          "type": "object",
+          "required": ["waypoint_id", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "waypoint_id": { "type": "string" },
+            "reason": { "enum": ["UNREACHABLE", "CANCELLED", "UNKNOWN_WAYPOINT"] }
+          }
+        }
+      }
+    },
+    "Event_ON_FPS_DROP_DETECTED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_FPS_DROP_DETECTED" },
+        "payload": {
+          "type": "object",
+          "required": ["fps", "duration_ms", "applied_quality"],
+          "additionalProperties": false,
+          "properties": {
+            "fps": { "type": "number", "minimum": 0 },
+            "duration_ms": { "type": "integer", "minimum": 0 },
+            "applied_quality": { "$ref": "#/$defs/GraphicsQuality" }
+          }
+        }
+      }
+    },
+    "Event_ON_CHECKOUT_COUNTER_ENTERED": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "event": { "const": "ON_CHECKOUT_COUNTER_ENTERED" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "UnityEvent": {
+      "description": "Any Unity -> React event.",
+      "oneOf": [
+        { "$ref": "#/$defs/Event_ON_STORE_READY" },
+        { "$ref": "#/$defs/Event_ON_PLAYER_MOVED" },
+        { "$ref": "#/$defs/Event_ON_PRODUCT_INSPECT_CLICKED" },
+        { "$ref": "#/$defs/Event_ON_WAYPOINT_ARRIVED" },
+        { "$ref": "#/$defs/Event_ON_NAVIGATION_FAILED" },
+        { "$ref": "#/$defs/Event_ON_FPS_DROP_DETECTED" },
+        { "$ref": "#/$defs/Event_ON_CHECKOUT_COUNTER_ENTERED" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopkeeper.local/schemas/ws_events.schema.json",
+  "title": "WebSocket events for /ws/v1/session/{session_id}?token=<access_token>",
+  "description": "Every text frame is a JSON envelope { type, timestamp, payload }. BINARY frames carry microphone audio: first byte 0x01, followed by PCM 16 kHz, 16-bit, mono, little-endian (a 20 ms frame is 640 data bytes). Binary frames with any other first byte are ignored. An invalid or expired token closes the socket with code 4401. Client sends HEARTBEAT every 15 s (also while the tab is hidden); the server treats the connection as dead after 45 s of silence.",
+  "$defs": {
+    "Language": { "enum": ["vi", "en"] },
+
+    "ClientMessage": {
+      "description": "Any client -> server text message.",
+      "oneOf": [
+        { "$ref": "#/$defs/AUDIO_END" },
+        { "$ref": "#/$defs/TEXT_MESSAGE" },
+        { "$ref": "#/$defs/CV_FRAME_ROI" },
+        { "$ref": "#/$defs/PLAYER_TELEMETRY" },
+        { "$ref": "#/$defs/BARGE_IN_INTERRUPT" },
+        { "$ref": "#/$defs/CLIENT_HEARTBEAT" },
+        { "$ref": "#/$defs/RESYNC_REQUEST" }
+      ]
+    },
+    "ServerMessage": {
+      "description": "Any server -> client text message.",
+      "oneOf": [
+        { "$ref": "#/$defs/SESSION_SYNC" },
+        { "$ref": "#/$defs/STT_TRANSCRIPT" },
+        { "$ref": "#/$defs/AGENT_RESPONSE_STREAM" },
+        { "$ref": "#/$defs/RESPONSE_CANCELLED" },
+        { "$ref": "#/$defs/UNITY_COMMAND" },
+        { "$ref": "#/$defs/UI_ACTION" },
+        { "$ref": "#/$defs/CART_UPDATED" },
+        { "$ref": "#/$defs/CV_QUALITY_WARNING" },
+        { "$ref": "#/$defs/SERVER_HEARTBEAT" },
+        { "$ref": "#/$defs/ERROR" }
+      ]
+    },
+
+    "AUDIO_END": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "AUDIO_END" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["audio_mode"],
+          "additionalProperties": false,
+          "properties": { "audio_mode": { "enum": ["ptt", "vad"] } }
+        }
+      }
+    },
+    "TEXT_MESSAGE": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "TEXT_MESSAGE" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["text", "language"],
+          "additionalProperties": false,
+          "properties": {
+            "text": { "type": "string", "minLength": 1 },
+            "language": { "$ref": "#/$defs/Language" },
+            "want_audio": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    },
+    "CV_FRAME_ROI": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "CV_FRAME_ROI" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["image_base64", "hand_confidence", "gaze_target_product_id"],
+          "additionalProperties": false,
+          "properties": {
+            "image_base64": { "type": "string", "description": "JPEG quality 0.7, at most 320x320 px and 64 KB decoded. Larger frames or frames above 2 FPS are dropped by the server." },
+            "hand_confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "gaze_target_product_id": { "oneOf": [{ "$ref": "inventory.schema.json#/$defs/ProductId" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "PLAYER_TELEMETRY": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "PLAYER_TELEMETRY" },
+        "timestamp": { "type": "integer" },
+        "payload": { "$ref": "unity_bridge.schema.json#/$defs/PlayerMovedPayload" }
+      }
+    },
+    "BARGE_IN_INTERRUPT": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "BARGE_IN_INTERRUPT" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id"],
+          "additionalProperties": false,
+          "properties": { "response_id": { "type": "string" } }
+        }
+      }
+    },
+    "CLIENT_HEARTBEAT": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "HEARTBEAT" },
+        "timestamp": { "type": "integer" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "RESYNC_REQUEST": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "RESYNC_REQUEST" },
+        "timestamp": { "type": "integer" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+
+    "SESSION_SYNC": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "SESSION_SYNC" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["cart", "spatial", "last_waypoint_id"],
+          "additionalProperties": false,
+          "properties": {
+            "cart": { "$ref": "inventory.schema.json#/$defs/CartSummary" },
+            "spatial": {
+              "type": "object",
+              "required": ["position", "current_aisle"],
+              "additionalProperties": false,
+              "properties": {
+                "position": { "$ref": "inventory.schema.json#/$defs/Vector3" },
+                "current_aisle": { "type": ["string", "null"] }
+              }
+            },
+            "last_waypoint_id": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "STT_TRANSCRIPT": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "STT_TRANSCRIPT" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["text", "confidence", "is_final", "language"],
+          "additionalProperties": false,
+          "properties": {
+            "text": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "is_final": { "type": "boolean" },
+            "language": { "$ref": "#/$defs/Language" }
+          }
+        }
+      }
+    },
+    "AGENT_RESPONSE_STREAM": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "AGENT_RESPONSE_STREAM" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id", "chunk_seq", "is_final", "text", "audio_base64", "audio_format", "audio_duration_ms", "visemes"],
+          "additionalProperties": false,
+          "properties": {
+            "response_id": { "type": "string" },
+            "chunk_seq": { "type": "integer", "minimum": 0 },
+            "is_final": { "type": "boolean" },
+            "text": { "type": "string" },
+            "audio_base64": { "type": ["string", "null"], "description": "null for text-only replies (TEXT_MESSAGE without want_audio)." },
+            "audio_format": { "enum": ["mp3", "opus", null] },
+            "audio_duration_ms": { "type": "integer", "minimum": 0 },
+            "visemes": {
+              "type": "array",
+              "items": { "$ref": "unity_bridge.schema.json#/$defs/VisemeFrame" },
+              "description": "time_ms is relative to the start of THIS audio chunk. Empty for text-only replies."
+            },
+            "recommended_products": {
+              "type": "array",
+              "items": { "$ref": "inventory.schema.json#/$defs/ProductId" },
+              "description": "May appear only on the final chunk."
+            },
+            "avatar_animation": {
+              "$ref": "unity_bridge.schema.json#/$defs/AvatarAnimation",
+              "description": "Carried by the first chunk."
+            }
+          }
+        }
+      }
+    },
+    "RESPONSE_CANCELLED": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "RESPONSE_CANCELLED" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id"],
+          "additionalProperties": false,
+          "properties": { "response_id": { "type": "string" } }
+        }
+      }
+    },
+    "UNITY_COMMAND": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "UNITY_COMMAND" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["response_id", "commands"],
+          "additionalProperties": false,
+          "properties": {
+            "response_id": { "type": "string" },
+            "commands": {
+              "type": "array",
+              "items": { "$ref": "unity_bridge.schema.json#/$defs/UnityCommand" },
+              "description": "Dispatched to Unity sequentially via DispatchCommand."
+            }
+          }
+        }
+      }
+    },
+    "UiActionPayload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["action", "product_id"],
+          "additionalProperties": false,
+          "properties": {
+            "action": { "const": "OPEN_PRODUCT_INSPECTOR" },
+            "product_id": { "$ref": "inventory.schema.json#/$defs/ProductId" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["action"],
+          "additionalProperties": false,
+          "properties": { "action": { "enum": ["OPEN_CHECKOUT", "CLOSE_MODAL"] } }
+        }
+      ]
+    },
+    "UI_ACTION": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "UI_ACTION" },
+        "timestamp": { "type": "integer" },
+        "payload": { "$ref": "#/$defs/UiActionPayload" }
+      }
+    },
+    "CART_UPDATED": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "CART_UPDATED" },
+        "timestamp": { "type": "integer" },
+        "payload": { "$ref": "inventory.schema.json#/$defs/CartSummary" }
+      }
+    },
+    "CV_QUALITY_WARNING": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "CV_QUALITY_WARNING" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["warning", "mean_luminance"],
+          "additionalProperties": false,
+          "properties": {
+            "warning": { "$ref": "inventory.schema.json#/$defs/QualityWarning" },
+            "mean_luminance": { "type": "number", "minimum": 0, "maximum": 255 }
+          }
+        }
+      }
+    },
+    "SERVER_HEARTBEAT": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "HEARTBEAT" },
+        "timestamp": { "type": "integer" },
+        "payload": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "ERROR": {
+      "type": "object",
+      "required": ["type", "timestamp", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ERROR" },
+        "timestamp": { "type": "integer" },
+        "payload": {
+          "type": "object",
+          "required": ["code", "message", "recoverable"],
+          "additionalProperties": false,
+          "properties": {
+            "code": { "enum": ["STT_FAILED", "CV_UNSUPPORTED_IMAGE", "RATE_LIMITED", "INTERNAL"] },
+            "message": { "type": "string" },
+            "recoverable": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

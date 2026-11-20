@@ -1,0 +1,43 @@
+# Git and repository metadata
+.git
+.gitignore
+.gitattributes
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+
+# Build and test output
+dist/
+build/
+coverage/
+*.log
+*.pyc
+
+# Docker local state
+postgres_data/
+redis_data/
+
+# Unity generated files
+Library/
+Temp/
+Logs/
+Obj/
+Build/
+*.csproj
+*.sln
+*.user
+*.unitypackage
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
