@@ -5,10 +5,10 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Response, status
-from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.api.rest_routes import router as rest_router
 from app.core.config import get_settings
 from app.core.database import (
     check_postgres,
@@ -20,18 +20,11 @@ from app.core.database import (
     get_engine,
     get_redis,
 )
+from app.schemas.contracts import HealthResponse
 
 logger = logging.getLogger("app")
 
 ProbeStatus = Literal["ok", "error"]
-
-
-class HealthResponse(BaseModel):
-    """Mirrors shared-contracts HealthResponse (moves to contracts.py in Task 2.1)."""
-
-    status: Literal["ok", "degraded"]
-    postgres: ProbeStatus
-    redis: ProbeStatus
 
 
 @asynccontextmanager
@@ -56,12 +49,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await engine.dispose()
 
 
-async def _probe(
-    check: Awaitable[None], name: str, timeout_seconds: float
-) -> ProbeStatus:
+async def _probe(check: Awaitable[None], name: str, timeout: float) -> ProbeStatus:
     try:
-        async with asyncio.timeout(timeout_seconds):
-            await check
+        await asyncio.wait_for(check, timeout=timeout)
     except Exception as exc:
         logger.warning("Health probe failed for %s: %s", name, type(exc).__name__)
         return "error"
@@ -98,3 +88,4 @@ app = FastAPI(
     openapi_url="/api/v1/openapi.json",
 )
 app.include_router(router)
+app.include_router(rest_router)
