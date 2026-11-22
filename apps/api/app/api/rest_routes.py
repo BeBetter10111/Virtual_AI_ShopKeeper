@@ -137,7 +137,7 @@ async def register(
     return await auth_service.register_user(db, body, settings)
 
 
-# --- Store --------------------------------------------------------------------
+# Store 
 
 
 @router.get("/store/layout")
@@ -216,7 +216,7 @@ async def get_product(
     )
 
 
-# --- Cart ---------------------------------------------------------------------
+# --- Cart 
 
 
 @router.get("/cart")

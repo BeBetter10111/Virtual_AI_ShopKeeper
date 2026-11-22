@@ -1,3 +1,6 @@
+# CPU-only PyTorch wheels (the default PyPI build pulls in GPU libraries).
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Runtime
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
@@ -10,6 +13,13 @@ redis>=5.0.1,<7
 PyJWT>=2.8,<3
 bcrypt>=4.1,<5
 python-multipart>=0.0.9
+
+# Vision
+numpy>=1.26,<3
+opencv-python-headless>=4.9
+Pillow>=10
+torch>=2.2,<3
+open_clip_torch>=2.24,<3
 
 # Dev / test (used by pytest, ruff and mypy commands in AGENTS.md)
 pytest>=8.2,<9
