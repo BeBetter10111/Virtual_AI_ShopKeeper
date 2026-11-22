@@ -37,7 +37,7 @@ services:
     ports:
       - "${NGINX_PORT:-8080}:80"
     volumes:
-      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
       # Unity WebGL build output (Brotli-compressed *.br files).
       - ./apps/web/public/webgl-build:/usr/share/nginx/html/webgl-build:ro
     # No depends_on: Nginx must start even when the api service is absent.

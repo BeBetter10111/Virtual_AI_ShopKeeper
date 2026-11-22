@@ -56,9 +56,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await engine.dispose()
 
 
-async def _probe(check: Awaitable[None], name: str, timeout: float) -> ProbeStatus:
+async def _probe(
+    check: Awaitable[None], name: str, timeout_seconds: float
+) -> ProbeStatus:
     try:
-        await asyncio.wait_for(check, timeout=timeout)
+        async with asyncio.timeout(timeout_seconds):
+            await check
     except Exception as exc:
         logger.warning("Health probe failed for %s: %s", name, type(exc).__name__)
         return "error"

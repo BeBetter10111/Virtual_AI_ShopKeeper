@@ -26,7 +26,7 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
 
 
 def create_redis_client(redis_url: str) -> Redis:
-    return Redis.from_url(redis_url, decode_responses=True)
+    return cast(Redis, Redis.from_url(redis_url, decode_responses=True))
 
 
 async def ensure_pgvector(engine: AsyncEngine) -> None:
