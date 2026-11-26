@@ -24,6 +24,13 @@ open_clip_torch>=2.24,<3
 # Speech (Task 3.2); only needed when SPEECH_PROVIDER=azure
 azure-cognitiveservices-speech>=1.38,<2
 
+# Agent (Task 3.3): LangChain plus the provider package for the model you choose.
+# Set LLM_MODEL to "anthropic:claude-haiku-5-5" or "google_genai:gemini-3.5-flash-lite".
+# For OpenAI models also install langchain-openai.
+langchain>=1.0,<2
+langchain-anthropic>=1.0,<2
+langchain-google-genai>=3.0
+
 # Dev / test (used by pytest, ruff and mypy commands in AGENTS.md)
 pytest>=8.2,<9
 pytest-asyncio>=0.23,<2
