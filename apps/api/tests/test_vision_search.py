@@ -22,9 +22,7 @@ RED = "#B22222"  # "Red Flannel Shirt" (prod_003, sold out in every size)
 NAVY = "#1F3A5F"  # "Blue Oxford Shirt" (prod_001, size L sold out only)
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def bgr(hex_color: str) -> tuple[int, int, int]:

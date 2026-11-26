@@ -14,12 +14,15 @@ PyJWT>=2.8,<3
 bcrypt>=4.1,<5
 python-multipart>=0.0.9
 
-# Vision
+# Vision (Task 3.1)
 numpy>=1.26,<3
 opencv-python-headless>=4.9
 Pillow>=10
 torch>=2.2,<3
 open_clip_torch>=2.24,<3
+
+# Speech (Task 3.2); only needed when SPEECH_PROVIDER=azure
+azure-cognitiveservices-speech>=1.38,<2
 
 # Dev / test (used by pytest, ruff and mypy commands in AGENTS.md)
 pytest>=8.2,<9
