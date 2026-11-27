@@ -9,6 +9,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.rest_routes import router as rest_router
+from app.api.ws_handler import router as ws_router
 from app.core.config import get_settings
 from app.core.database import (
     check_postgres,
@@ -21,6 +22,7 @@ from app.core.database import (
     get_redis,
 )
 from app.schemas.contracts import HealthResponse
+from app.services.session_manager import create_default_session_manager
 
 logger = logging.getLogger("app")
 
@@ -35,6 +37,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = redis_client
+
+    manager = create_default_session_manager(redis_client, app.state.session_factory)
+    app.state.session_manager = manager
+    await manager.warm_up()
 
     # The server must start even if Postgres is down; /health then reports it.
     try:
@@ -89,3 +95,4 @@ app = FastAPI(
 )
 app.include_router(router)
 app.include_router(rest_router)
+app.include_router(ws_router)
